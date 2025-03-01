@@ -1,0 +1,69 @@
+name: Terraform CI/CD
+
+on:
+  push:
+    branches:
+      - 'feature/**'
+env:
+    AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+    AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+    AWS_DEFAULT_REGION: ap-southeast-1
+
+permissions:
+  id-token: write
+  contents: read
+    
+jobs:
+  terraform-test:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ env.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ env.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_DEFAULT_REGION }}
+      
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+
+      - name: Terraform Init
+        run: terraform init
+        working-directory: ./terraform
+      
+      - name: Terraform Validate
+        run: terraform validate
+        working-directory: ./terraform
+
+      - name: Terraform Plan
+        run: terraform plan
+        working-directory: ./terraform
+       
+  auto-merge-to-dev:
+    needs: terraform-test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Merge feature to dev
+        uses: devmasx/merge-branch@v1.3.1
+        with:
+          type: now
+          from_branch: ${{ github.ref_name }}
+          target_branch: dev
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+  create-pull-request-to-main:
+    needs: auto-merge-to-dev
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create pull request to main
+        uses: repo-sync/pull-request@v2
+        with:
+          source_branch: dev
+          destination_branch: main
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          pr_title: 'Auto PR: Dev to Main'
+          pr_body: 'This PR is automatically created after successful feature merge to dev.'
