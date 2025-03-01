@@ -3,5 +3,5 @@ provider "aws" {
 }
 
 resource "aws_s3_bucket" "example" {
-  bucket = "update-my-feature-branch-bucket"
+  bucket = "my-feature-branch-bucket"
 }
